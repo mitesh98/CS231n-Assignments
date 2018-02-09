@@ -1,6 +1,5 @@
 import numpy as np
 from random import shuffle
-#from past.builtins import xrange
 
 def svm_loss_naive(W, X, y, reg):
   """
@@ -20,29 +19,35 @@ def svm_loss_naive(W, X, y, reg):
   - loss as single float
   - gradient with respect to weights W; an array of same shape as W
   """
-    dW = np.zeros(W.shape) # initialize the gradient as zero
+  dW = np.zeros(W.shape) # initialize the gradient as zero
 
-    # compute the loss and the gradient
-    num_classes = W.shape[1]
-    num_train = X.shape[0]
-    loss = 0.0
-    for i in range(num_train):
+  # compute the loss and the gradient
+  num_classes = W.shape[1]
+  num_train = X.shape[0]
+  loss = 0.0
+  for i in range(num_train):
     scores = X[i].dot(W)
     correct_class_score = scores[y[i]]
-    for j in xrange(num_classes):
-        if j == y[i]:
-            continue
-        margin = scores[j] - correct_class_score + 1 # note delta = 1
-        if margin > 0:
-            loss += margin
+    # cnt is number of classes adding to loss
+    cnt = 0
+    for j in range(num_classes):
+      if j == y[i]:
+        continue
+      margin = scores[j] - correct_class_score + 1 # note delta = 1
+      if margin > 0:
+        loss += margin
+        dW[:,j] += X[i]
+        cnt += 1
+    dW[:,y[i]] -= cnt*X[i]
 
-    # Right now the loss is a sum over all training examples, but we want it
-    # to be an average instead so we divide by num_train.
-    loss /= num_train
+  # Right now the loss is a sum over all training examples, but we want it
+  # to be an average instead so we divide by num_train.
+  loss /= num_train
+  dW /= num_train
 
-    # Add regularization to the loss.
-    loss += reg * np.sum(W * W)
-
+  # Add regularization to the loss.
+  loss += reg * np.sum(W * W)
+  dW += reg*2*W
   #############################################################################
   # TODO:                                                                     #
   # Compute the gradient of the loss function and store it dW.                #
@@ -51,8 +56,9 @@ def svm_loss_naive(W, X, y, reg):
   # loss is being computed. As a result you may need to modify some of the    #
   # code above to compute the gradient.                                       #
   #############################################################################
-    
-    return loss, dW
+
+
+  return loss, dW
 
 
 def svm_loss_vectorized(W, X, y, reg):
@@ -61,15 +67,27 @@ def svm_loss_vectorized(W, X, y, reg):
 
   Inputs and outputs are the same as svm_loss_naive.
   """
-  loss = 0.0
+  loss = 5.0
   dW = np.zeros(W.shape) # initialize the gradient as zero
 
+  N = X.shape[0]  # batch size
+  D, C = W.shape  # input dimension, and no. of classes
+  delta = 1
   #############################################################################
   # TODO:                                                                     #
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+  y_score = np.dot(X,W)
+  correct_class_score = np.matrix(y_score[np.arange(N),y]).reshape(N,1)
+  margins = np.maximum(0, y_score - correct_class_score + delta)
+
+  margins[np.arange(N),y] = 0
+
+  loss = np.sum(margins)
+  loss /= N
+  loss += reg * np.sum(W*W)
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -84,7 +102,17 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+
+  mask = np.zeros(margins.shape)
+  mask[margins > 0] = 1
+
+  cnt = np.sum(mask, axis=1)
+  mask[np.arange(N),y] = -cnt
+  dW = np.dot(X.T, mask)
+
+  dW /= N
+  dW += reg*2*W
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
